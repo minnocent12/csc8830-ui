@@ -271,12 +271,13 @@ def test_no_em_or_en_dashes(path: Path) -> None:
 
 _STDLIB_ALLOWED = {
     "__future__", "collections", "contextlib", "dataclasses", "enum", "html", "math", "re",
-    "typing",
+    "typing", "unicodedata",
 }
 
 
 def _module_level_import(path: Path) -> bool:
-    return "components" in path.relative_to(PACKAGE_DIR).parts
+    rel = path.relative_to(PACKAGE_DIR)
+    return "components" in rel.parts or rel.as_posix() == "shell.py"
 
 
 @pytest.mark.parametrize(
