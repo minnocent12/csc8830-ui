@@ -33,9 +33,11 @@ Home (combined dashboards only): `home=HomeSpec(render=...)` adds "Home" as the 
 of the top-level selectbox and makes it the default view (`?module=home`). On Home there is
 no page radio and no page renders; the dashboard's renderer receives a `HomeContext` with the
 registry-derived modules, `first_page(module)`, and `open_module(slug)` for button
-`on_click`, which sets the same state as the sidebar. Breadcrumbs then link "CSc 8830" to
-Home with a same-app query link (`?module=home`, a full reload into a new session); the
-current page is never a link. The kit holds no Home content: titles, descriptions, and
+`on_click`, which sets the same state as the sidebar. Breadcrumbs stay plain text: on Streamlit
+Community Cloud the app runs in an iframe, and a breadcrumb link reloads only the iframe
+while the browser address bar keeps the old page, so the sidebar's Home option is the way
+back. The `breadcrumbs` component still accepts same-app `(label, "?...")` links for hosts
+where that is reliable. The kit holds no Home content: titles, descriptions, and
 status come from the dashboard and the modules. `top_nav_label` sets the category label
 above the selectbox (the course dashboards use "Explore", because Home is not a module).
 

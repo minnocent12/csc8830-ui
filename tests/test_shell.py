@@ -267,7 +267,7 @@ def test_deep_links_bypass_home() -> None:
     assert home_body(app) is None
     assert body(app) == "BODY Module 5-6 / Experiments & Results"
     assert query(app) == {"module": "module-5-6", "page": "experiments-results", "keep": "1"}
-    assert '<a href="?module=home&amp;keep=1" target="_self">CSc 8830</a>' in crumbs(app)
+    assert "<a " not in crumbs(app)  # plain text: a link would desync the address bar on Cloud
 
 
 def test_valid_module_with_invalid_page_still_opens_its_first_page() -> None:
