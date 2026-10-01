@@ -256,6 +256,8 @@ def test_token_names_are_semantic_snake_case(cls) -> None:
 def _repo_text_files() -> list[Path]:
     paths = list(PACKAGE_DIR.rglob("*.py")) + list((REPO_ROOT / "tests").rglob("*.py"))
     paths += list((REPO_ROOT / "scripts").rglob("*.py"))
+    paths += list((REPO_ROOT / "showcase").rglob("*.py"))
+    paths += list((REPO_ROOT / "showcase").rglob("*.toml"))
     paths += [REPO_ROOT / name for name in ("README.md", "pyproject.toml")]
     return [p for p in paths if p.is_file()]
 
@@ -267,15 +269,25 @@ def test_no_em_or_en_dashes(path: Path) -> None:
         assert char not in text, f"{name} found in {path.relative_to(REPO_ROOT)}"
 
 
-_STDLIB_ALLOWED = {"__future__", "dataclasses", "enum", "re"}
+_STDLIB_ALLOWED = {
+    "__future__", "collections", "contextlib", "dataclasses", "enum", "html", "math", "re",
+    "typing",
+}
 
 
-@pytest.mark.parametrize("path", sorted(PACKAGE_DIR.glob("*.py")), ids=lambda p: p.name)
+def _module_level_import(path: Path) -> bool:
+    return "components" in path.relative_to(PACKAGE_DIR).parts
+
+
+@pytest.mark.parametrize(
+    "path", sorted(PACKAGE_DIR.rglob("*.py")), ids=lambda p: p.relative_to(PACKAGE_DIR).as_posix()
+)
 def test_package_uses_only_relative_and_stdlib_imports(path: Path) -> None:
     """Vendored copies live under another package name, so absolute self-imports would break.
 
-    Streamlit is allowed only as a function-level import in styles.py, so tokens, theme,
-    and the package itself stay importable without Streamlit installed.
+    Streamlit may be imported at module level only inside ``components/``; elsewhere only as a
+    function-level import in styles.py, so tokens, theme, and the package itself stay
+    importable without Streamlit installed.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     lazy = {
@@ -284,16 +296,20 @@ def test_package_uses_only_relative_and_stdlib_imports(path: Path) -> None:
         if isinstance(fn, ast.FunctionDef)
         for inner in ast.walk(fn)
     }
+
+    def check(module: str, node: ast.AST) -> None:
+        top = module.split(".")[0]
+        if top == "streamlit":
+            assert _module_level_import(path) or (path.name == "styles.py" and id(node) in lazy), path
+        else:
+            assert top in _STDLIB_ALLOWED, module
+
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.level == 0:
-            assert node.module in _STDLIB_ALLOWED, node.module
+            check(node.module or "", node)
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                top = alias.name.split(".")[0]
-                if top == "streamlit":
-                    assert path.name == "styles.py" and id(node) in lazy, path.name
-                else:
-                    assert top in _STDLIB_ALLOWED, alias.name
+                check(alias.name, node)
 
 
 def test_importing_the_package_does_not_import_streamlit() -> None:

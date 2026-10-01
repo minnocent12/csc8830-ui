@@ -11,8 +11,32 @@ This repository is the single source of truth for the application's visual langu
 | `theme.py` | the native Streamlit `[theme]` derived from tokens, rendered as `config.toml` text | no |
 | `styles.py` | the small global stylesheet for gaps the native theme cannot cover, and `inject_global_styles()` | only inside that function |
 | `version.py` | `KIT_VERSION` | no |
+| `components/` | reusable Streamlit presentation components (below) | yes |
 
-Shared Streamlit components will be added in a later phase.
+## Components
+
+`components/` wraps native Streamlit elements so pages share one visual vocabulary without
+losing native behavior, accessibility, or AppTest visibility. Components are presentation
+only: no image processing, no color conversion, no metric computation, no judgement of
+results, and no widget keys of their own (pages pass theirs).
+
+| Module | Public API | Native element |
+|---|---|---|
+| `layout` | `page_header`, `breadcrumbs`, `section_header`, `footer` | `st.header`, `st.subheader`, `st.caption`; eyebrow and breadcrumbs are escaped `st.html` |
+| `cards` | `card`, `configuration_card`, `parameter_group` | `st.container(border=True)` |
+| `metrics` | `metric_card`, `metric_row`, `MetricSpec` | `st.metric`, at most 4 per row, labels unchanged |
+| `status` | `status_chip(s)`, `status_banner`, `empty_state`, `pending_state`, `success_state` | chips are escaped `st.html`; banners are `st.info`/`success`/`warning`/`error` |
+| `images` | `image_card`, `image_comparison`, `image_gallery`, `ImageItem` | `st.image`, no conversion |
+| `data` | `data_table`, `download_action` | `st.dataframe`, `st.download_button` |
+| `theory` | `theory_section`, `equation_block` | `st.subheader`, `st.latex` (unchanged) |
+| `results` | `experiment_summary`, `result_section` | card plus explicit status chip |
+| `uploads` | `upload_panel` | `st.file_uploader`, bundled-sample notice as `st.info` |
+
+Import from a vendored copy, for example
+`from module5_6.webapp.design.components import page_header, metric_row`.
+
+A development-only showcase renders every component with labeled synthetic placeholders:
+`streamlit run showcase/app.py`. It is not vendored.
 
 ## Streamlit compatibility
 
@@ -69,11 +93,18 @@ python scripts/vendor.py sync           # write package copies and config.toml f
 python scripts/vendor.py sync module3   # one target only
 ```
 
-It writes only the design package files and each launch context's
-`.streamlit/config.toml`. It refuses to downgrade a newer copy, to overwrite local edits
-to a same-version copy (unless `--force`), to touch extra files in a design package, to
-replace a `config.toml` it did not generate, or to vendor anything containing em or en
-dashes. Streamlit reads `config.toml` from the current directory and then from the
+It copies the package recursively (`*.py` files, caches excluded, sorted) and records
+ownership in `_kit_manifest.json` inside each design package: every kit-owned file by
+relative path with its SHA-256. With that manifest it:
+
+- never overwrites or deletes a file the manifest does not list (unknown files block sync)
+- detects owned files edited after vendoring and refuses to replace them without `--force`
+- removes owned files that a newer kit no longer ships, and prunes directories they leave empty
+- refuses to downgrade a newer copy unless `--allow-downgrade`
+- refuses to replace a `config.toml` it did not generate, or to vendor any em or en dash
+
+Every check runs before anything is written, so a refused target is left untouched. Copies
+made before manifests existed (0.2.0) are recognized and upgraded in place. Streamlit reads `config.toml` from the current directory and then from the
 script's own directory, so each module repository, the workspace root, and the deployment
 dashboard each carry an identical generated copy.
 
@@ -127,4 +158,6 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-Tests use only the standard library and pytest; Streamlit is not needed to run them.
+Token, theme, and vendoring tests need only the standard library and pytest. Component
+tests need Streamlit; the `dev` extra pins `streamlit>=1.56,<2` because they drive uploads
+through `AppTest.file_uploader`. On the 1.49 runtime floor that one test is skipped.
