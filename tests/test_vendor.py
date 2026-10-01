@@ -46,6 +46,16 @@ def test_canonical_files_include_nested_components_in_sorted_order() -> None:
     assert not any("__pycache__" in rel for rel in files)
 
 
+def test_untracked_files_in_the_canonical_package_are_never_vendored() -> None:
+    probe = vendor.PACKAGE_DIR / "components" / "status 2.py"  # a cloud-sync conflict copy
+    probe.write_text("STRAY = 1\n", encoding="utf-8")
+    try:
+        assert "components/status 2.py" not in vendor.canonical_files()
+        assert "components/status.py" in vendor.canonical_files()
+    finally:
+        probe.unlink()
+
+
 def test_manifest_is_deterministic_and_hashes_every_file() -> None:
     files = vendor.canonical_files()
     text = vendor.manifest_text(files)
