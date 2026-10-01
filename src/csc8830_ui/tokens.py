@@ -136,8 +136,9 @@ class TypographyTokens:
     body: TypeRole = TypeRole(size_px=16, weight=400, line_height=1.6)
     body_small: TypeRole = TypeRole(size_px=14, weight=400, line_height=1.5)
     caption: TypeRole = TypeRole(size_px=13, weight=400, line_height=1.45)
+    # Not uppercase: metric labels carry units, and case is meaningful (dB vs DB, mm vs MM).
     metric_label: TypeRole = TypeRole(
-        size_px=12, weight=600, line_height=1.4, letter_spacing_em=0.06, uppercase=True
+        size_px=13, weight=600, line_height=1.4, letter_spacing_em=0.02
     )
     metric_value: TypeRole = TypeRole(size_px=28, weight=700, line_height=1.15)
     code: TypeRole = TypeRole(size_px=14, weight=400, line_height=1.5, monospace=True)

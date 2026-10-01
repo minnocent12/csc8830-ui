@@ -15,7 +15,7 @@ in both Streamlit 1.47 and 1.64.
 | 2 | ``[data-testid="stMainBlockContainer"]`` | cap content width; wide layout otherwise runs edge to edge on large monitors | low: test hook renamed once (1.4x) |
 | 3 | ``.stApp :is(h1, ..., h6)`` | heading color; the theme has one text color for everything | low: plain tags under the app root class |
 | 4 | ``[data-testid="stCaptionContainer"]`` | Streamlit fades captions with ``opacity: 0.6``, which drops them below AA; restore full opacity and use the muted text color (6.21:1) | low |
-| 5 | ``[data-testid="stMetricLabel"]`` and its ``p``, ``[data-testid="stMetricValue"]`` | metric label and value typography; native theme keys for this arrived after 1.47. The label's inner paragraph sets its own size, hence the ``p`` descendant | low to medium: depends on the label's inner markup |
+| 5 | ``[data-testid="stMetricLabel"]`` and its ``div``/``p`` descendants, ``[data-testid="stMetricValue"]`` | metric label and value typography; native theme keys for this arrived after 1.47. The inner paragraph sets its own size, and the inner elements truncate with an ellipsis (a different element in 1.47 and 1.64), which hides long labels such as "Mean reproj. error, inliers (px)" on laptop widths, so labels wrap instead. Labels are never case-transformed because they carry units | medium: depends on the label's inner markup, which already differs between 1.47 and 1.64 |
 | 6 | ``.stApp :is(a, button, summary, [role="tab"]):focus-visible`` | one visible keyboard focus ring in the accessible orange | none: standard pseudo-class |
 
 Nothing here hides a control, changes layout order, or replaces a native element, so
@@ -92,7 +92,12 @@ def build_css() -> str:
   font-size: {label.size_px}px;
   font-weight: {label.weight};
   letter-spacing: {label.letter_spacing_em}em;
-  text-transform: uppercase;
+  text-transform: {"uppercase" if label.uppercase else "none"};
+}}
+[data-testid="stMetricLabel"] :is(div, p) {{
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }}
 [data-testid="stMetricValue"] {{
   color: var(--{p}-color-text-heading);

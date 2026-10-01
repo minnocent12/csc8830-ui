@@ -170,6 +170,11 @@ def test_type_roles_are_readable(role: str) -> None:
     assert 1.0 <= spec.line_height <= 1.8
 
 
+def test_metric_labels_keep_their_case() -> None:
+    """Metric labels contain units such as dB, px, and mm, where case carries meaning."""
+    assert TYPOGRAPHY.metric_label.uppercase is False
+
+
 def test_only_code_is_monospace() -> None:
     mono = {f.name for f in fields(TypographyTokens) if getattr(TYPOGRAPHY, f.name).monospace}
     assert mono == {"code"}

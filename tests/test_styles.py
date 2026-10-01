@@ -29,6 +29,12 @@ def test_custom_properties_are_namespaced_and_cover_every_color() -> None:
     assert variables["--csc8830-space-x4"] == "16px"
 
 
+def test_metric_labels_are_not_case_transformed() -> None:
+    css = build_css()
+    label_rule = css[css.index('[data-testid="stMetricLabel"],') : css.index("}", css.index('[data-testid="stMetricLabel"],'))]
+    assert "text-transform: none" in label_rule
+
+
 def test_css_avoids_generated_class_names_and_positional_selectors() -> None:
     css = build_css()
     assert "st-emotion-cache" not in css
