@@ -271,3 +271,19 @@ def test_showcase_config_matches_the_kit_theme() -> None:
 
     config = SHOWCASE.parent / ".streamlit" / "config.toml"
     assert config.read_text(encoding="utf-8") == render_config_toml()
+
+
+def test_image_components_can_drop_the_card_border() -> None:
+    from csc8830_ui.components import image_card, image_comparison
+
+    import inspect
+    for fn in (image_card, image_comparison):
+        assert inspect.signature(fn).parameters["bordered"].default is True
+    app = run(
+        """
+        img = np.zeros((8, 8, 3), dtype=np.uint8)
+        image_card(img, caption="a", bordered=False)
+        image_comparison(ImageItem(img, caption="l"), ImageItem(img, caption="r"), bordered=False)
+        """
+    )
+    assert len(images(app)) == 3
