@@ -13,7 +13,9 @@ from csc8830_ui import (
     BREAKPOINTS,
     COLORS,
     CONTRAST_PAIRS,
+    HEADINGS,
     KIT_VERSION,
+    LAYOUT,
     RADII,
     SPACING,
     TYPOGRAPHY,
@@ -192,6 +194,35 @@ def test_radii_are_restrained_and_ordered() -> None:
     assert RADII.pill >= 999
 
 
+def test_heading_scale_binds_typography_roles_to_tags() -> None:
+    assert HEADINGS.sizes_px[0] == TYPOGRAPHY.page_title.size_px
+    assert HEADINGS.sizes_px[2] == TYPOGRAPHY.section_title.size_px
+    assert HEADINGS.sizes_px[3] == TYPOGRAPHY.subsection_title.size_px
+    assert HEADINGS.sidebar_sizes_px[0] == TYPOGRAPHY.app_title.size_px
+
+
+@pytest.mark.parametrize("scale", ["sizes_px", "sidebar_sizes_px"])
+def test_heading_sizes_strictly_descend(scale: str) -> None:
+    sizes = getattr(HEADINGS, scale)
+    assert len(sizes) == 6
+    assert all(a > b for a, b in zip(sizes, sizes[1:]))
+
+
+@pytest.mark.parametrize("scale", ["weights", "sidebar_weights"])
+def test_heading_weights_are_streamlit_compatible(scale: str) -> None:
+    weights = getattr(HEADINGS, scale)
+    assert len(weights) == 6
+    assert all(w % 100 == 0 and 100 <= w <= 900 for w in weights)
+
+
+def test_body_weight_is_a_valid_streamlit_base_weight() -> None:
+    assert TYPOGRAPHY.body.weight % 100 == 0 and 100 <= TYPOGRAPHY.body.weight <= 600
+
+
+def test_reading_width_is_narrower_than_content_width() -> None:
+    assert 600 <= LAYOUT.reading_max_width < LAYOUT.content_max_width
+
+
 def test_breakpoints_ascend() -> None:
     values = [getattr(BREAKPOINTS, f.name) for f in fields(BREAKPOINTS)]
     assert values == sorted(values) and len(set(values)) == len(values)
@@ -219,6 +250,7 @@ def test_token_names_are_semantic_snake_case(cls) -> None:
 
 def _repo_text_files() -> list[Path]:
     paths = list(PACKAGE_DIR.rglob("*.py")) + list((REPO_ROOT / "tests").rglob("*.py"))
+    paths += list((REPO_ROOT / "scripts").rglob("*.py"))
     paths += [REPO_ROOT / name for name in ("README.md", "pyproject.toml")]
     return [p for p in paths if p.is_file()]
 
@@ -230,12 +262,42 @@ def test_no_em_or_en_dashes(path: Path) -> None:
         assert char not in text, f"{name} found in {path.relative_to(REPO_ROOT)}"
 
 
+_STDLIB_ALLOWED = {"__future__", "dataclasses", "enum", "re"}
+
+
 @pytest.mark.parametrize("path", sorted(PACKAGE_DIR.glob("*.py")), ids=lambda p: p.name)
 def test_package_uses_only_relative_and_stdlib_imports(path: Path) -> None:
-    """Vendored copies live under another package name, and must not pull in Streamlit."""
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+    """Vendored copies live under another package name, so absolute self-imports would break.
+
+    Streamlit is allowed only as a function-level import in styles.py, so tokens, theme,
+    and the package itself stay importable without Streamlit installed.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    lazy = {
+        id(inner)
+        for fn in ast.walk(tree)
+        if isinstance(fn, ast.FunctionDef)
+        for inner in ast.walk(fn)
+    }
+    for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.level == 0:
-            assert node.module in {"__future__", "dataclasses", "enum", "re"}, node.module
+            assert node.module in _STDLIB_ALLOWED, node.module
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                assert alias.name.split(".")[0] not in {"streamlit", "csc8830_ui"}, alias.name
+                top = alias.name.split(".")[0]
+                if top == "streamlit":
+                    assert path.name == "styles.py" and id(node) in lazy, path.name
+                else:
+                    assert top in _STDLIB_ALLOWED, alias.name
+
+
+def test_importing_the_package_does_not_import_streamlit() -> None:
+    import subprocess
+    import sys
+
+    code = "import csc8830_ui, sys; print('streamlit' in sys.modules)"
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True, text=True, check=True, env={"PYTHONPATH": str(REPO_ROOT / "src")},
+    )
+    assert out.stdout.strip() == "False"
