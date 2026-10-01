@@ -12,6 +12,29 @@ This repository is the single source of truth for the application's visual langu
 | `styles.py` | the small global stylesheet for gaps the native theme cannot cover, and `inject_global_styles()` | only inside that function |
 | `version.py` | `KIT_VERSION` | no |
 | `components/` | reusable Streamlit presentation components (below) | yes |
+| `navigation.py` | stable URL slugs and module/page resolution with fallbacks | no |
+| `shell.py` | the shared app shell: identity, navigation, breadcrumbs, footer, URL sync | yes |
+
+## App shell
+
+Every app calls `render_shell(pages, page_title=..., ...)` from a thin `webapp/shell.py`
+adapter; the navigation algorithm exists only here. Pages keep the structural contract
+`module_label`, `page_label`, `order`, `render`, and the shell calls `render()` unchanged.
+
+- Combined dashboards: native module `st.selectbox` and page `st.radio`, with
+  `sync_query_params=True` so `?module=module-5-6&page=motion-tracking` deep links work.
+- Standalone apps (`standalone=True`): the single module is shown as text, no one-option
+  selectbox; the URL is not managed.
+- `page_context=callable(page) -> str | None` adds an optional sidebar caption per page.
+- The page radio is the only sidebar radio. AppTest lists main-area widgets first, so it is
+  `app.radio[0]` on pages without radios and always `app.sidebar.radio[0]`.
+
+URL slugs are lowercase ASCII words joined by hyphens (`Experiments & Results` becomes
+`experiments-results`). A duplicate slug within a module, or between modules, raises
+`ValueError`; `home` is reserved for a later Home view. The URL is read once per browser
+session, widgets are the source of truth afterwards, and only `module` and `page` are
+written back, only when they change. Unknown modules fall back to the first module; unknown
+pages fall back to the first page of the requested module.
 
 ## Components
 

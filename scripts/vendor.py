@@ -8,10 +8,11 @@ Usage, from the csc8830-ui repository root (the workspace defaults to its parent
     python scripts/vendor.py sync --force          # also replace locally edited kit files
 
 What it writes, and nothing else:
-* every file of ``src/csc8830_ui/`` (recursively, ``*.py`` only, caches excluded), byte for
-  byte, into each target's design package
+* every git-tracked ``*.py`` file of ``src/csc8830_ui/`` (recursively; untracked files are
+  never vendored), byte for byte, into each target's design package
 * ``_kit_manifest.json`` in that package, recording which files the kit owns
-* the generated ``.streamlit/config.toml`` in each launch context
+* the generated ``.streamlit/config.toml`` in each launch context, and in this repository's
+  development showcase
 
 Ownership: the manifest lists every kit-owned file by relative path with its SHA-256. A file
 in a design package that the manifest does not list is unknown and is never overwritten or
@@ -35,6 +36,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -94,8 +96,17 @@ def _walk(root: Path) -> list[str]:
 
 
 def canonical_files() -> dict[str, bytes]:
-    """The kit's package files by relative path, read from the canonical source."""
-    return {rel: (PACKAGE_DIR / rel).read_bytes() for rel in _walk(PACKAGE_DIR) if rel.endswith(".py")}
+    """The kit's package files by relative path: git-tracked (committed or staged) ``*.py`` only.
+
+    Reading git's index instead of the directory means untracked strays, such as the
+    "name 2.py" conflict copies a cloud-synced folder can create, are never vendored.
+    """
+    listing = subprocess.run(
+        ["git", "ls-files", "-z", "--", "."],
+        cwd=PACKAGE_DIR, capture_output=True, check=True,
+    ).stdout.decode("utf-8")
+    tracked = sorted(rel for rel in listing.split("\0") if rel.endswith(".py"))
+    return {rel: (PACKAGE_DIR / rel).read_bytes() for rel in tracked if (PACKAGE_DIR / rel).is_file()}
 
 
 def manifest_text(files: dict[str, bytes]) -> str:
@@ -264,6 +275,19 @@ def sync_target(
     return []
 
 
+SHOWCASE_CONFIG = REPO_ROOT / "showcase" / ".streamlit" / "config.toml"
+
+
+def showcase_config_current() -> bool:
+    """The development showcase in this repository carries the same generated theme."""
+    return SHOWCASE_CONFIG.is_file() and SHOWCASE_CONFIG.read_text(encoding="utf-8") == render_config_toml()
+
+
+def write_showcase_config() -> None:
+    SHOWCASE_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    SHOWCASE_CONFIG.write_text(render_config_toml(), encoding="utf-8")
+
+
 def assert_dash_free() -> None:
     """Refuse to vendor anything that would break the Module 3 punctuation rule."""
     files = canonical_files()
@@ -295,6 +319,10 @@ def main(argv: list[str] | None = None) -> int:
     failed = False
     if args.command == "sync":
         assert_dash_free()
+        write_showcase_config()
+    if not showcase_config_current():
+        failed = True
+        print("MISMATCH showcase config (run sync)")
     for target in selected:
         if args.command == "sync":
             refusals = sync_target(
