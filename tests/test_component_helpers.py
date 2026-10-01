@@ -22,7 +22,7 @@ from csc8830_ui.tokens import CONTRAST_PAIRS, ContrastUse  # noqa: E402
 COMPONENTS_DIR = Path(__file__).resolve().parents[1] / "src" / "csc8830_ui" / "components"
 
 EXPECTED_API = {
-    "page_header", "breadcrumbs", "section_header", "footer",
+    "page_header", "breadcrumbs", "section_header", "footer", "eyebrow",
     "card", "configuration_card", "parameter_group",
     "metric_card", "metric_row", "MetricSpec", "MAX_METRIC_COLUMNS",
     "status_chip", "status_chips", "status_banner", "StatusKind",
@@ -162,3 +162,16 @@ def test_components_do_no_image_processing(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     for banned in ("import cv2", "cvtColor", "import numpy", "astype("):
         assert banned not in text, banned
+
+
+def test_breadcrumb_links_must_be_same_app_query_strings() -> None:
+    out = breadcrumbs_html([("CSc 8830", "?module=home"), "Module 4", "RGB"])
+    assert '<a href="?module=home" target="_self">CSc 8830</a>' in out
+    for bad in ("javascript:alert(1)", "https://example.com", "/other"):
+        with pytest.raises(ValueError):
+            breadcrumbs_html([("x", bad), "y"])
+
+
+def test_the_current_breadcrumb_is_never_a_link() -> None:
+    out = breadcrumbs_html(["CSc 8830", ("Home", "?module=home")])
+    assert "<a " not in out

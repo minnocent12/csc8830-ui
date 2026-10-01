@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, {str(SRC)!r})
 import streamlit as st
 from types import SimpleNamespace
-from csc8830_ui.shell import render_shell
+from csc8830_ui.shell import HomeSpec, render_shell
 
 def page(module, label, order, extra_radio=False):
     def render():
@@ -34,6 +34,11 @@ PAGES = [
     page("Module 5-6", "Experiments & Results", 50),
 ]
 M4 = [p for p in PAGES if p.module_label == "Module 4"]
+
+def home_render(ctx):
+    st.markdown("HOME " + " ".join(f"{{m.slug}}:{{len(m.pages)}}:{{ctx.first_page(m).label}}" for m in ctx.modules))
+    for m in ctx.modules:
+        st.button("Open Module", key="open_" + m.slug, on_click=ctx.open_module, args=(m.slug,))
 """
 
 COMBINED = 'render_shell(PAGES, page_title="CSc 8830 Computer Vision", sync_query_params=True, notices=["Module 3 is not importable yet; skipping it."])'
@@ -215,3 +220,89 @@ def test_standalone_with_several_modules_fails_clearly() -> None:
 def test_no_pages_shows_the_empty_message() -> None:
     app = run(make('render_shell([], page_title="x", empty_message="No module pages are registered.")'))
     assert [e.value for e in app.error] == ["No module pages are registered."]
+
+
+# Home (combined dashboards)
+
+HOMED = 'render_shell(PAGES, page_title="x", sync_query_params=True, home=HomeSpec(render=home_render))'
+
+
+def home_body(app: AppTest) -> str | None:
+    return next((m.value for m in app.markdown if m.value.startswith("HOME ")), None)
+
+
+def crumbs(app: AppTest) -> str:
+    return next(b for b in html_bodies(app) if "Breadcrumb" in b)
+
+
+def test_no_owned_params_opens_home() -> None:
+    app = run(make(HOMED))
+    assert home_body(app) == (
+        "HOME module-2:2:Calibration module-4:2:RGB Human Boundary module-5-6:2:Motion Tracking"
+    )
+    assert app.sidebar.selectbox[0].options == ["Home", "Module 2", "Module 4", "Module 5-6"]
+    assert app.sidebar.selectbox[0].value == "Home"
+    assert not app.sidebar.radio  # no fake page selection on Home
+    assert not any(m.value.startswith("BODY ") for m in app.markdown)
+    assert query(app) == {"module": "home"}
+
+
+def test_home_breadcrumb_is_current_and_not_a_link() -> None:
+    app = run(make(HOMED, module="home"))
+    html = crumbs(app)
+    assert '<li aria-current="page"><span class="csc8830-breadcrumbs-sep" aria-hidden="true">/</span>Home</li>' in html
+    assert "<a " not in html
+    assert app.main.caption[-1].value.startswith("CSc 8830 Computer Vision")  # footer stays
+
+
+@pytest.mark.parametrize("params", [{"module": "nope"}, {"module": "nope", "page": "theory"}, {"page": "theory"}])
+def test_unknown_or_missing_module_opens_home_and_drops_page(params) -> None:
+    app = run(make(HOMED, **params))
+    assert home_body(app) is not None
+    assert query(app) == {"module": "home"}
+
+
+def test_deep_links_bypass_home() -> None:
+    app = run(make(HOMED, module="module-5-6", page="experiments-results", keep="1"))
+    assert home_body(app) is None
+    assert body(app) == "BODY Module 5-6 / Experiments & Results"
+    assert query(app) == {"module": "module-5-6", "page": "experiments-results", "keep": "1"}
+    assert '<a href="?module=home&amp;keep=1" target="_self">CSc 8830</a>' in crumbs(app)
+
+
+def test_valid_module_with_invalid_page_still_opens_its_first_page() -> None:
+    app = run(make(HOMED, module="module-4", page="nope"))
+    assert body(app) == "BODY Module 4 / RGB Human Boundary"
+    assert query(app) == {"module": "module-4", "page": "rgb-human-boundary"}
+
+
+def test_open_module_selects_the_registry_first_page_and_syncs_the_url() -> None:
+    app = run(make(HOMED, keep="1"))
+    run(app.button(key="open_module-5-6").click())
+    assert body(app) == "BODY Module 5-6 / Motion Tracking"
+    assert app.sidebar.selectbox[0].value == "Module 5-6"
+    assert app.sidebar.radio[0].value == "Motion Tracking"
+    assert query(app) == {"keep": "1", "module": "module-5-6", "page": "motion-tracking"}
+
+
+def test_choosing_home_in_the_selectbox_returns_home_and_removes_page() -> None:
+    app = run(make(HOMED, module="module-4", page="rgb-human-boundary"))
+    run(app.sidebar.selectbox[0].set_value("Home"))
+    assert home_body(app) is not None
+    assert query(app) == {"module": "home"}
+
+
+def test_home_without_url_sync_still_defaults_to_home() -> None:
+    app = run(make('render_shell(PAGES, page_title="x", home=HomeSpec(render=home_render))'))
+    assert home_body(app) is not None
+    assert query(app) == {}
+
+
+def test_standalone_apps_cannot_have_home() -> None:
+    app = make('render_shell(M4, page_title="x", standalone=True, home=HomeSpec(render=home_render))').run()
+    assert app.exception and "combined dashboards" in app.exception[0].value
+
+
+def test_top_nav_label_is_configurable() -> None:
+    app = run(make('render_shell(PAGES, page_title="x", home=HomeSpec(render=home_render), top_nav_label="Explore")'))
+    assert any(">Explore<" in b for b in html_bodies(app))

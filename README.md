@@ -29,6 +29,16 @@ adapter; the navigation algorithm exists only here. Pages keep the structural co
 - The page radio is the only sidebar radio. AppTest lists main-area widgets first, so it is
   `app.radio[0]` on pages without radios and always `app.sidebar.radio[0]`.
 
+Home (combined dashboards only): `home=HomeSpec(render=...)` adds "Home" as the first option
+of the top-level selectbox and makes it the default view (`?module=home`). On Home there is
+no page radio and no page renders; the dashboard's renderer receives a `HomeContext` with the
+registry-derived modules, `first_page(module)`, and `open_module(slug)` for button
+`on_click`, which sets the same state as the sidebar. Breadcrumbs then link "CSc 8830" to
+Home with a same-app query link (`?module=home`, a full reload into a new session); the
+current page is never a link. The kit holds no Home content: titles, descriptions, and
+status come from the dashboard and the modules. `top_nav_label` sets the category label
+above the selectbox (the course dashboards use "Explore", because Home is not a module).
+
 URL slugs are lowercase ASCII words joined by hyphens (`Experiments & Results` becomes
 `experiments-results`). A duplicate slug within a module, or between modules, raises
 `ValueError`; `home` is reserved for a later Home view. The URL is read once per browser
@@ -184,3 +194,13 @@ python3 -m venv .venv
 Token, theme, and vendoring tests need only the standard library and pytest. Component
 tests need Streamlit; the `dev` extra pins `streamlit>=1.56,<2` because they drive uploads
 through `AppTest.file_uploader`. On the 1.49 runtime floor that one test is skipped.
+
+## Known limitation: browser Back and Forward
+
+In the combined dashboards, browser Back and Forward change only the address bar; the view
+updates at the next sidebar interaction or refresh. Streamlit adds a history entry each time
+`st.query_params` changes, but it reruns the script on history navigation only when the URL
+path changes (multipage `st.navigation` apps), not when only the query string changes.
+Fixing this would need custom JavaScript, `st.navigation`, or the 1.56+ widget option
+`bind="query-params"`; none fits the current architecture, so the limitation is accepted.
+It is not surfaced to app users. Deep links, refresh, and copied URLs all work.
