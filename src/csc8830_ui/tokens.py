@@ -7,6 +7,8 @@ are relative so the package can be vendored under any parent package name.
 Token groups:
     COLORS        semantic color roles (brand, actions, neutrals, feedback states)
     TYPOGRAPHY    text roles (size, weight, line height, tracking, case, font stack)
+    HEADINGS      h1 to h6 sizes and weights, main area and sidebar
+    LAYOUT        content max widths
     SPACING       4px-based spacing scale
     RADII         corner radii
     BORDERS       border widths and colors, focus ring treatment
@@ -129,16 +131,43 @@ class TypographyTokens:
     page_title: TypeRole = TypeRole(
         size_px=32, weight=700, line_height=1.2, letter_spacing_em=-0.01
     )
-    section_title: TypeRole = TypeRole(size_px=22, weight=650, line_height=1.3)
+    section_title: TypeRole = TypeRole(size_px=22, weight=600, line_height=1.3)
     subsection_title: TypeRole = TypeRole(size_px=18, weight=600, line_height=1.4)
     body: TypeRole = TypeRole(size_px=16, weight=400, line_height=1.6)
     body_small: TypeRole = TypeRole(size_px=14, weight=400, line_height=1.5)
     caption: TypeRole = TypeRole(size_px=13, weight=400, line_height=1.45)
+    # Not uppercase: metric labels carry units, and case is meaningful (dB vs DB, mm vs MM).
     metric_label: TypeRole = TypeRole(
-        size_px=12, weight=600, line_height=1.4, letter_spacing_em=0.06, uppercase=True
+        size_px=13, weight=600, line_height=1.4, letter_spacing_em=0.02
     )
     metric_value: TypeRole = TypeRole(size_px=28, weight=700, line_height=1.15)
     code: TypeRole = TypeRole(size_px=14, weight=400, line_height=1.5, monospace=True)
+
+
+@dataclass(frozen=True)
+class HeadingTokens:
+    """Sizes (px) and weights for HTML heading levels h1 to h6, index 0 being h1.
+
+    Streamlit themes headings by tag, so these bind the typography roles to tags:
+    h1 = page_title, h3 = section_title, h4 = subsection_title. Current pages use
+    ``st.header`` (h2) for their title and ``st.subheader`` (h3) for sections; h2 sits between
+    so long-form documents that nest their own h1 still read in order. Weights are multiples
+    of 100 because Streamlit rejects other values. The sidebar has its own compact scale, with
+    h1 as the app title.
+    """
+
+    sizes_px: tuple[int, ...] = (32, 26, 22, 18, 16, 14)
+    weights: tuple[int, ...] = (700, 700, 600, 600, 600, 600)
+    sidebar_sizes_px: tuple[int, ...] = (18, 16, 15, 14, 13, 12)
+    sidebar_weights: tuple[int, ...] = (700, 600, 600, 600, 600, 600)
+
+
+@dataclass(frozen=True)
+class LayoutTokens:
+    """Content widths in px. Pages use Streamlit's wide layout; these cap line length."""
+
+    content_max_width: int = 1360  # experiment and visualization pages
+    reading_max_width: int = 760  # long-form theory text, applied in a later phase
 
 
 @dataclass(frozen=True)
@@ -212,6 +241,8 @@ class BreakpointTokens:
 
 COLORS = ColorTokens()
 TYPOGRAPHY = TypographyTokens()
+HEADINGS = HeadingTokens()
+LAYOUT = LayoutTokens()
 SPACING = SpacingTokens()
 RADII = RadiusTokens()
 BORDERS = BorderTokens()

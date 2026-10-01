@@ -7,7 +7,7 @@ name = "csc8830-ui"
 dynamic = ["version"]
 description = "Canonical design tokens for the CSc 8830 Computer Vision application"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
