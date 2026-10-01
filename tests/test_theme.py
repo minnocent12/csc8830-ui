@@ -7,11 +7,17 @@ import pytest
 
 from csc8830_ui import COLORS, HEADINGS, KIT_VERSION, RADII, TYPOGRAPHY, contrast_ratio
 from csc8830_ui.accessibility import is_hex_color
-from csc8830_ui.theme import STREAMLIT_REQUIREMENT, render_config_toml, streamlit_theme
+from csc8830_ui.theme import (
+    STREAMLIT_MIN_VERSION,
+    STREAMLIT_REQUIREMENT,
+    STREAMLIT_UPLOAD_TEST_REQUIREMENT,
+    render_config_toml,
+    streamlit_theme,
+)
 
-# Every theme key registered by Streamlit 1.47.0 (read from that release's config module).
-# Keys added later, such as redColor or metricValueFontSize, must not be emitted.
-STREAMLIT_147_THEME_KEYS = {
+# Every theme key registered by Streamlit 1.49.0, the runtime floor (read from that release's
+# config module). Keys added later, such as redColor or metricValueFontSize, must not be emitted.
+STREAMLIT_149_THEME_KEYS = {
     "base", "primaryColor", "backgroundColor", "secondaryBackgroundColor", "textColor",
     "linkColor", "linkUnderline", "borderColor", "showWidgetBorder", "showSidebarBorder",
     "baseRadius", "buttonRadius", "font", "headingFont", "codeFont", "fontFaces",
@@ -19,10 +25,10 @@ STREAMLIT_147_THEME_KEYS = {
     "codeFontSize", "codeFontWeight", "codeBackgroundColor", "dataframeBorderColor",
     "dataframeHeaderBackgroundColor", "chartCategoricalColors", "chartSequentialColors",
 }
-STREAMLIT_147_SIDEBAR_KEYS = {
+STREAMLIT_149_SIDEBAR_KEYS = {
     "backgroundColor", "baseRadius", "borderColor", "buttonRadius", "codeBackgroundColor",
-    "codeFont", "codeFontSize", "dataframeBorderColor", "dataframeHeaderBackgroundColor",
-    "font", "headingFont", "headingFontSizes", "headingFontWeights", "linkColor",
+    "codeFont", "codeFontSize", "codeFontWeight", "dataframeBorderColor",
+    "dataframeHeaderBackgroundColor", "font", "headingFont", "headingFontSizes", "headingFontWeights", "linkColor",
     "linkUnderline", "primaryColor", "secondaryBackgroundColor", "showWidgetBorder",
     "textColor",
 }
@@ -39,11 +45,11 @@ def test_toml_round_trips_to_the_theme_dict(parsed: dict) -> None:
     assert parsed["theme"]["sidebar"] == theme["theme.sidebar"]
 
 
-def test_only_streamlit_147_keys_are_emitted(parsed: dict) -> None:
+def test_only_streamlit_149_keys_are_emitted(parsed: dict) -> None:
     main = {k for k in parsed["theme"] if k != "sidebar"}
-    assert main <= STREAMLIT_147_THEME_KEYS, main - STREAMLIT_147_THEME_KEYS
+    assert main <= STREAMLIT_149_THEME_KEYS, main - STREAMLIT_149_THEME_KEYS
     sidebar = set(parsed["theme"]["sidebar"])
-    assert sidebar <= STREAMLIT_147_SIDEBAR_KEYS, sidebar - STREAMLIT_147_SIDEBAR_KEYS
+    assert sidebar <= STREAMLIT_149_SIDEBAR_KEYS, sidebar - STREAMLIT_149_SIDEBAR_KEYS
     assert set(parsed) == {"theme"}
 
 
@@ -131,3 +137,11 @@ def test_config_contains_no_secret_like_keys(parsed: dict) -> None:
 
 def test_render_is_deterministic() -> None:
     assert render_config_toml() == render_config_toml()
+
+
+def test_runtime_floor_is_149_and_upload_tests_need_156() -> None:
+    assert STREAMLIT_MIN_VERSION == "1.49"
+    assert STREAMLIT_REQUIREMENT == "streamlit>=1.49,<2"
+    # The test-only floor must stay separate from, and above, the runtime floor.
+    assert STREAMLIT_UPLOAD_TEST_REQUIREMENT == "streamlit>=1.56,<2"
+    assert STREAMLIT_UPLOAD_TEST_REQUIREMENT not in render_config_toml()

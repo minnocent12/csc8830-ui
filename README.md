@@ -16,17 +16,22 @@ Shared Streamlit components will be added in a later phase.
 
 ## Streamlit compatibility
 
-Every assignment requires `streamlit>=1.47,<2`. The theme emits only keys that exist in
-Streamlit 1.47 (a test holds the 1.47 key list). Alert colors and metric font sizes became
-theme keys after 1.47, so alerts keep Streamlit's default colors and metric typography is
-set in CSS.
+Every assignment requires `streamlit>=1.49,<2` at runtime. The theme alone would work on
+1.47, but the assignment pages use `width="stretch"` on `st.image` and `st.dataframe`,
+which arrived in 1.49. The theme emits only keys that exist in Streamlit 1.49 (a test holds
+the 1.49 key list). Alert colors and metric font sizes are not theme keys at 1.49, so alerts
+keep Streamlit's default colors and metric typography is set in CSS.
+
+Module 4's test suite additionally needs `streamlit>=1.56,<2` in its `dev` extra, because
+`AppTest.file_uploader` first shipped in 1.56. That is a test-only floor
+(`STREAMLIT_UPLOAD_TEST_REQUIREMENT`), not a runtime requirement.
 
 ## Global styles
 
 The native theme does most of the work. `styles.py` adds only these rules, documented in its
 docstring with selector, reason, and fragility:
 
-| Desired behavior | Native theme at 1.47? | CSS | Why |
+| Desired behavior | Native theme at 1.49? | CSS | Why |
 |---|---|---|---|
 | Orange primary buttons, focus, active widgets | yes (`primaryColor`) | no | |
 | App, widget, sidebar backgrounds, text, links, borders | yes | no | |
@@ -35,9 +40,9 @@ docstring with selector, reason, and fragility:
 | Content max width on wide monitors | no | yes | layout is otherwise edge to edge |
 | Heading color darker than body text | no (one text color) | yes | hierarchy |
 | Captions readable | no | yes | Streamlit fades captions with 60 percent opacity, below AA |
-| Metric label and value typography | no (keys added after 1.47) | yes | |
+| Metric label and value typography | no (not a key at 1.49) | yes | |
 | Consistent keyboard focus ring on links, buttons, tabs | partial | yes | |
-| Alert (info, warning, success, error) colors | no (keys added after 1.47) | no | left at Streamlit defaults for now |
+| Alert (info, warning, success, error) colors | no (not a key at 1.49) | no | left at Streamlit defaults for now |
 
 Selectors use plain tags, the `.stApp` root class, or `data-testid` hooks. Generated
 `st-emotion-cache-*` class names and positional selectors are never used, and no control is
