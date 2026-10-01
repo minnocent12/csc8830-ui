@@ -271,7 +271,7 @@ def test_no_em_or_en_dashes(path: Path) -> None:
 
 _STDLIB_ALLOWED = {
     "__future__", "collections", "contextlib", "dataclasses", "enum", "html", "math", "re",
-    "typing", "unicodedata",
+    "typing", "unicodedata", "urllib",
 }
 
 
